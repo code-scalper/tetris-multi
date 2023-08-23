@@ -1,26 +1,49 @@
+<script setup>
+import UserRegisterScreen from './components/UserRegisterScreen.vue'
+import SplashScreen from './components/SplashScreen.vue'
+import TetrisScreen from './components/tetris/TetrisScreen.vue'
+</script>
+
 <template>
-  <img alt="Vue logo" src="./assets/logo.png">
-  <HelloWorld msg="Welcome to Your Vue.js App"/>
+  <div>
+    <div class="w-screen m-0 p-0" v-if="userName === null">
+      <UserRegisterScreen @setUserName="setUserName" />
+    </div>
+    <div class="w-screen m-0 p-0" v-else>
+      <SplashScreen v-if="!isGameReady" @setGameReady="setGameReady" />
+      <TetrisScreen v-else :userName="userName" />
+    </div>
+  </div>
 </template>
-
 <script>
-import HelloWorld from './components/HelloWorld.vue'
-
 export default {
   name: 'App',
-  components: {
-    HelloWorld
+  data() {
+    return {
+      isGameReady: false,
+      userName: null
+    }
+  },
+  created() {},
+  methods: {
+    setGameReady() {
+      this.isGameReady = true
+    },
+    setUserName(name) {
+      this.userName = name
+    }
   }
 }
 </script>
+<style scoped>
+* {
+  margin: 0;
+  padding: 0;
+}
+.logo {
+  display: block;
+}
 
-<style>
-#app {
-  font-family: Avenir, Helvetica, Arial, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-align: center;
-  color: #2c3e50;
-  margin-top: 60px;
+@media (min-width: 1024px) {
 }
 </style>
