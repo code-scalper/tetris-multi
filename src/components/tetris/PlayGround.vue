@@ -123,7 +123,7 @@ export default {
       combo: 0,
       isCombo: false,
       itemKey: 0,
-      gameItems: ["", "speedometer", "refresh", "", ""],
+      gameItems: ["", "", "", "", ""],
       disableKey: false,
       blind: false,
       rotate: false,
