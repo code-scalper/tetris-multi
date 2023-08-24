@@ -33,38 +33,38 @@
 </template>
 
 <script>
-import { BASIC_GRIDS } from '@/constants/grids'
-import { BASIC_BLOCKS } from '@/constants/blocks'
+import { BASIC_GRIDS } from "@/constants/grids";
+import { BASIC_BLOCKS } from "@/constants/blocks";
 export default {
-  name: 'PlayGround',
+  name: "PlayGround",
   props: {
     type: {
       type: String,
-      default: 'player'
+      default: "player",
     },
     isPlaying: {
       type: Boolean,
-      default: false
+      default: false,
     },
     defaultGrids: {
       type: Array,
       default() {
-        return structuredClone(BASIC_GRIDS)
-      }
+        return structuredClone(BASIC_GRIDS);
+      },
     },
     defaultBlocks: {
       type: Object,
       default() {
-        return BASIC_BLOCKS
-      }
+        return BASIC_BLOCKS;
+      },
     },
     userName: {
       type: String,
-      default: 'Player'
+      default: "Player",
     },
     opponentScore: {
       type: Number,
-      default: 0
+      default: 0,
     },
     opponentItems: {
       type: Array,
@@ -74,27 +74,29 @@ export default {
           { active: false },
           { active: false },
           { active: false },
-          { active: false }
-        ]
-      }
-    }
+          { active: false },
+        ];
+      },
+    },
   },
   data() {
     return {
+      generated: false,
       pressed: false,
       score: 0,
       gameInterval: null,
       tempMovingItem: {},
       movingItem: {},
       duration: 1000,
-      
+
       movingCoords: [],
       statusKey: 0,
       grids: [],
       blocks: [],
       hold: false,
-      holdType: ''
-    }
+      holdType: "",
+      seized: false,
+    };
   },
   watch: {
     isPlaying: {
@@ -108,120 +110,131 @@ export default {
         //   clearInterval(this.gameInterval)
         // }
       },
-      immediate: true
+      immediate: true,
     },
     score: {
-      handler(val){
-        if(val%50 === 0 && this.duration > 110){
-          this.duration = this.duration - 100
-          this.restartInterval()
+      handler(val) {
+        if (val % 50 === 0 && this.duration > 110) {
+          this.duration = this.duration - 100;
+          this.restartInterval();
         }
-      }
-    }
+      },
+    },
   },
   unmounted() {
-    document.removeEventListener('keydown', this.handleKeyPress)
+    document.removeEventListener("keydown", this.handleKeyPress);
   },
   mounted() {
-    if (this.type === 'player') {
-      document.addEventListener('keydown', this.handleKeyPress)
+    if (this.type === "player") {
+      document.addEventListener("keydown", this.handleKeyPress);
     }
-    this.grids = this.defaultGrids
-    this.blocks = this.defaultBlocks
+    this.grids = this.defaultGrids;
+    this.blocks = this.defaultBlocks;
     // this.init()
   },
   methods: {
+    clearGameInterval() {
+      clearInterval(this.gameInterval);
+      this.gameInterval = null;
+    },
+    setGameInterval() {
+      if (!this.gameInterval) {
+        this.gameInterval = setInterval(() => {
+          this.moveBlock("top", 1, true);
+        }, this.duration);
+      }
+    },
     renderSync(param) {
       this.grids = param.grids;
       this.score = param.score;
     },
     handleKeyPress(e) {
       e.preventDefault();
-      
+
       // console.log('handle key press')
       switch (e.keyCode) {
         case 32: // space
-          this.dropBlock()
+          this.dropBlock();
 
-          break
+          break;
         case 40: // top
-          this.moveBlock('top', 1)
+          this.moveBlock("top", 1);
 
-          break
+          break;
         case 39: // right
-          this.moveBlock('left', 1)
+          this.moveBlock("left", 1);
 
-          break
+          break;
         case 37: // left
-          this.moveBlock('left', -1)
+          this.moveBlock("left", -1);
 
-          break
+          break;
         case 38: // up
-          this.changeDirection()
-          break
+          this.changeDirection();
+          break;
         default:
-          break
+          break;
       }
     },
     test() {
-      this.generateNewBlock()
+      this.generateNewBlock();
     },
     init() {
       setInterval(() => {
-        this.$emit('handleOpponentEvent', {
-          action: 'renderSync',
-          param: {grids: this.grids, score: this.score}
-        })
-      }, 500)
-      this.generateNewBlock()
+        this.$emit("handleOpponentEvent", {
+          action: "renderSync",
+          param: { grids: this.grids, score: this.score },
+        });
+      }, 500);
+      this.generateNewBlock();
     },
     gameOver() {
-      clearInterval(this.gameInterval)
-      console.log('game over')
-      this.$emit('gameOver')
+      this.clearGameInterval();
+      this.$emit("gameOver");
     },
     prependNewLine() {},
-    restartInterval(){
-      clearInterval(this.gameInterval)
-      this.gameInterval = setInterval(() => {
-            this.moveBlock('top', 1, true)
-      }, this.duration)
+    restartInterval() {
+      this.clearGameInterval();
+      this.setGameInterval();
     },
     generateNewBlock() {
-      clearInterval(this.gameInterval)
-      const blockArray = Object.entries(this.blocks)
-      const randomIndex = Math.floor(Math.random() * blockArray.length)
-      this.movingItem.type = blockArray[randomIndex][0]
-      this.$emit('handleOpponentEvent', {
-        action: 'generateNewBlock',
-        param: this.movingItem.type
-      })
+      if (this.generated) return;
+      this.generated = true;
+      this.seized = false;
+      this.clearGameInterval();
+      const blockArray = Object.entries(this.blocks);
+      const randomIndex = Math.floor(Math.random() * blockArray.length);
+      this.movingItem.type = blockArray[randomIndex][0];
+      this.$emit("handleOpponentEvent", {
+        action: "generateNewBlock",
+        param: this.movingItem.type,
+      });
 
-      this.movingItem.top = 0
-      this.movingItem.left = 5
-      this.movingItem.direction = 0
-      this.tempMovingItem = { ...this.movingItem }
-      this.renderBlocks()
-      console.log(this.duration)
-      this.gameInterval = setInterval(() => {
-            this.moveBlock('top', 1, true)
-      }, this.duration)
+      this.movingItem.top = 0;
+      this.movingItem.left = 5;
+      this.movingItem.direction = 0;
+      this.tempMovingItem = { ...this.movingItem };
+      this.renderBlocks();
+      this.setGameInterval();
+      setTimeout(() => {
+        this.generated = false;
+      }, 50);
     },
     moveBlock(moveType, amount) {
-      this.tempMovingItem[moveType] += amount
-      this.renderBlocks(moveType, amount)
+      this.tempMovingItem[moveType] += amount;
+      this.renderBlocks(moveType, amount);
     },
     renderBlocks(moveType) {
-      const { type, direction, top, left } = this.tempMovingItem
+      const { type, direction, top, left } = this.tempMovingItem;
 
       // 이전 클래스 제거
       this.movingCoords.forEach((coord) => {
-        this.grids[coord[0]][coord[1]].status = ''
-        this.grids[coord[0]][coord[1]].type = ''
-      })
+        this.grids[coord[0]][coord[1]].status = "";
+        this.grids[coord[0]][coord[1]].type = "";
+      });
 
-      this.movingCoords = []
-      if (!type || direction < 0) return
+      this.movingCoords = [];
+      if (!type || direction < 0) return;
 
       // let standardBlock = this.blocks[type][direction].reduce(
       //   (acc, cur) => {
@@ -239,44 +252,46 @@ export default {
       //   },
       //   [[0, 0]]
       // )
-      const findBanIndex = this.blocks[type][direction].find((b) => b.ban === moveType)
+      const findBanIndex = this.blocks[type][direction].find(
+        (b) => b.ban === moveType
+      );
 
-      if (findBanIndex > -1) return
-      let completed = true
+      if (findBanIndex > -1) return;
+      let completed = true;
       this.blocks[type][direction].some((block) => {
-        const x = block[0] + left
-        const y = block[1] + top
-        const target = this.grids[y] ? this.grids[y][x] : null
+        const x = block[0] + left;
+        const y = block[1] + top;
+        const target = this.grids[y] ? this.grids[y][x] : null;
         if (!target) {
-          this.hold = true
-          this.holdType = moveType
-          this.tempMovingItem = { ...this.movingItem }
-          block.ban = moveType
-          console.log(block.ban)
+          this.hold = true;
+          this.holdType = moveType;
+          this.tempMovingItem = { ...this.movingItem };
+          block.ban = moveType;
           setTimeout(() => {
-            this.renderBlocks(moveType === 'top' ? 'seized' : null)
-          }, 0)
+            this.renderBlocks(moveType === "top" ? "seized" : null);
+          }, 0);
 
-          completed = false
-          return true
+          completed = false;
+          return true;
         }
-        const isEmpty = target.status !== 'seized'
+        const isEmpty = target.status !== "seized";
 
         if (isEmpty) {
-          target.status = 'moving'
-          target.type = type
-          this.movingCoords = [...this.movingCoords, [y, x]]
+          target.status = "moving";
+          target.type = type;
+          this.movingCoords = [...this.movingCoords, [y, x]];
         } else {
-          if (y <= 1) {
-            this.gameOver()
-            return true
+          // console.log("y", y);
+          if (y <= 0) {
+            this.gameOver();
+            return true;
           }
 
-          this.tempMovingItem = { ...this.movingItem }
+          this.tempMovingItem = { ...this.movingItem };
           setTimeout(() => {
-            this.renderBlocks(moveType === 'top' ? 'seized' : null)
-          }, 0)
-          return true
+            this.renderBlocks(moveType === "top" ? "seized" : null);
+          }, 0);
+          return true;
           // if (moveType === 'retry') {
           //   clearInterval(this.gameInterval)
           //   // this.showGameOverText()
@@ -288,56 +303,103 @@ export default {
           //   }, 0)
           // }
         }
-      })
-      if (moveType === 'seized') {
-        this.seizeBlock()
+      });
+      if (moveType === "seized") {
+        this.seizeBlock();
       }
       if (completed) {
-        this.movingItem.left = left
-        this.movingItem.top = top
-        this.movingItem.direction = direction
+        this.movingItem.left = left;
+        this.movingItem.top = top;
+        this.movingItem.direction = direction;
       }
 
-      this.statusKey++
+      this.statusKey++;
     },
     dropBlock() {
-      clearInterval(this.gameInterval)
-      this.gameInterval = setInterval(() => {
-        this.moveBlock('top', 1, true)
-      }, 20)
+      // this.clearGameInterval();
+      const { type, direction, left } = this.tempMovingItem;
+      let matched = false;
+      this.grids.some((grid, gridIndex) => {
+        this.blocks[type][direction].some((block) => {
+          let x = block[0] + left;
+          //  let y = block[1] + top;
+
+          if (grid[x].status === "seized") {
+            matched = true;
+            return true;
+          }
+        });
+        if (matched) {
+          this.tempMovingItem.top = gridIndex;
+        }
+        return matched;
+      });
+      console.log(this.tempMovingItem.top, matched);
+      if (matched) {
+        this.renderBlocks("top");
+      }
+
+      // this.blocks[type][direction].some((block) => {
+      //   let x = block[0] + left;
+      //   let y = block[1] + top;
+
+      //   let matched = false;
+      //   while (matched === false) {
+      //     if (!this.grids[y]) matched = true;
+      //     if (this.grids[y] && this.grids[y][x].status === "seized") {
+      //       matched = true;
+      //     }
+      //     y++;
+      //   }
+      //   if (matched) {
+      //     max = max < y - 3 ? y - 3 : max;
+      //     return true;
+      //   }
+      // });
+
+      // console.log(max, "y");
+
+      // this.clearGameInterval()
+      // if(!this.gameInterval){
+
+      //   this.gameInterval = setInterval(() => {
+      //     this.moveBlock('top', 1, true)
+      //   }, 20)
+      // }
     },
     seizeBlock() {
+      this.seized = true;
       this.movingCoords.forEach((coord) => {
-        this.grids[coord[0]][coord[1]].status = 'seized'
-      })
-      this.movingCoords = []
+        this.grids[coord[0]][coord[1]].status = "seized";
+      });
+      this.movingCoords = [];
 
-      this.checkMatch()
+      this.checkMatch();
     },
     checkMatch() {
-      const matchedRowIndexs = []
-      const matchedRows = []
-      this.grids.forEach((grid,index) => {
-        let matched = true
+      const matchedRowIndexs = [];
+      const matchedRows = [];
+      this.grids.forEach((grid, index) => {
+        let matched = true;
         grid.forEach((col) => {
-          if (col.status !== 'seized') matched = false
-        })
+          if (col.status !== "seized") matched = false;
+        });
         if (matched) {
           matchedRowIndexs.push(index);
-          
+
           const item = grid.map(() => {
-            return { status: '', type: '' }
-          })
-          matchedRows.push(item)
+            return { status: "", type: "" };
+          });
+          matchedRows.push(item);
         }
-      })
-      matchedRowIndexs.forEach(row=>{
+      });
+      matchedRowIndexs.forEach((row) => {
         this.grids.splice(row, 1);
-        this.score = this.score+10
-      })
-      matchedRows.forEach(row=>{
-        this.grids.unshift(row)
-      })
+        this.score = this.score + 10;
+      });
+      matchedRows.forEach((row) => {
+        this.grids.unshift(row);
+      });
       // const childNodes = playground.childNodes
       // childNodes.forEach((child) => {
       //   let matched = true
@@ -351,19 +413,20 @@ export default {
       //     prependNewLine(playground)
       //   }
       // })
-
-      this.generateNewBlock()
+      setTimeout(() => {
+        this.generateNewBlock();
+      }, 100);
     },
     changeDirection() {
-      const currDirection = this.tempMovingItem.direction
+      const currDirection = this.tempMovingItem.direction;
       currDirection === 3
         ? (this.tempMovingItem.direction = 0)
-        : (this.tempMovingItem.direction += 1)
+        : (this.tempMovingItem.direction += 1);
 
-      this.renderBlocks()
-    }
-  }
-}
+      this.renderBlocks();
+    },
+  },
+};
 </script>
 
 <style scoped>
@@ -417,23 +480,23 @@ export default {
 }
 
 .item1 {
-  background-image: url('@/assets/images/items/blocks.png');
+  background-image: url("@/assets/images/items/blocks.png");
 }
 
 .item2 {
-  background-image: url('@/assets/images/items/ignore.png');
+  background-image: url("@/assets/images/items/ignore.png");
 }
 
 .item3 {
-  background-image: url('@/assets/images/items/prohibition.png');
+  background-image: url("@/assets/images/items/prohibition.png");
 }
 
 .item4 {
-  background-image: url('@/assets/images/items/refresh.png');
+  background-image: url("@/assets/images/items/refresh.png");
 }
 
 .item5 {
-  background-image: url('@/assets/images/items/speedometer.png');
+  background-image: url("@/assets/images/items/speedometer.png");
 }
 
 .square {
