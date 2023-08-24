@@ -4,8 +4,20 @@
       <h3>{{ userName }}</h3>
       <p>Score : {{ score }}</p>
     </div>
-    <div class="playground player-ground">
-      <ul class="border border-stone-600">
+    <div class="playground player-ground relative">
+      <div
+        v-if="combo > 0"
+        class="combo text-red-500 text-[36px] font-bold flex items-center justify-center absolute w-[100px] h-[100px] -top-[50px] -right-[50px]"
+      >
+        <!-- <img
+        src="@/assets/images/explosion.png"
+        alt="exp"
+        class="combo "
+      /> -->
+        {{ combo }}
+      </div>
+
+      <ul class="border border-stone-600" :class="{ rotate: rotate === true }">
         <li v-for="(row, rowIndex) in grids" :key="rowIndex">
           <ul>
             <li
@@ -17,23 +29,27 @@
           </ul>
         </li>
       </ul>
+      <div v-if="blind" class="absolute bg-black/90 w-full h-full top-0"></div>
+      <div
+        v-if="winGame"
+        class="winGame absolute bg-rose-500/90 w-full h-full top-0 text-[50px] text-white flex items-center justify-center"
+      >
+        Congraturations!!! <br />
+        You Win!!!
+      </div>
     </div>
     <div>
-      <ul class="item-list">
-        <li class="item1">
-          <span>1</span>
+      <ul class="item-list" :key="itemKey">
+        <li :class="item" v-for="(item, index) in gameItems" :key="index">
+          <span>{{ index + 1 }}</span>
         </li>
-        <li class="item2"><span>2</span></li>
-        <li class="item3"><span>3</span></li>
-        <li class="item4"><span>4</span></li>
-        <li class="item5"><span>5</span></li>
       </ul>
     </div>
   </div>
 </template>
 
 <script>
-import { BASIC_GRIDS } from "@/constants/grids";
+import { BASIC_GRIDS, DEAD_ROW } from "@/constants/grids";
 import { BASIC_BLOCKS } from "@/constants/blocks";
 export default {
   name: "PlayGround",
@@ -56,6 +72,12 @@ export default {
       type: Object,
       default() {
         return BASIC_BLOCKS;
+      },
+    },
+    defaultDeadRow: {
+      type: Array,
+      default() {
+        return DEAD_ROW;
       },
     },
     userName: {
@@ -81,6 +103,7 @@ export default {
   },
   data() {
     return {
+      GAME_ITEMS: ["blocks", "ignore", "prohibition", "refresh", "speedometer"],
       generated: false,
       pressed: false,
       score: 0,
@@ -93,9 +116,18 @@ export default {
       statusKey: 0,
       grids: [],
       blocks: [],
+      deadRow: [],
       hold: false,
       holdType: "",
       seized: false,
+      combo: 0,
+      isCombo: false,
+      itemKey: 0,
+      gameItems: ["", "speedometer", "refresh", "", ""],
+      disableKey: false,
+      blind: false,
+      rotate: false,
+      winGame: false,
     };
   },
   watch: {
@@ -113,11 +145,19 @@ export default {
       immediate: true,
     },
     score: {
-      handler(val) {
-        if (val % 50 === 0 && this.duration > 110) {
-          this.duration = this.duration - 100;
-          this.restartInterval();
+      handler() {
+        if (this.isCombo === false) {
+          this.isCombo = true;
+          setTimeout(() => {
+            this.isCombo = false;
+            this.combo = 0;
+          }, 1000);
         }
+
+        // if (val % 50 === 0 && this.duration > 110) {
+        //   this.duration = this.duration - 100;
+        //   this.restartInterval();
+        // }
       },
     },
   },
@@ -130,9 +170,81 @@ export default {
     }
     this.grids = this.defaultGrids;
     this.blocks = this.defaultBlocks;
+    this.deadRow = this.defaultDeadRow;
     // this.init()
   },
   methods: {
+    takeItem(item) {
+      console.log(item);
+      switch (item) {
+        case "blocks":
+          this.addBlocks();
+          break;
+        case "prohibition":
+          this.ignoreKeys();
+          break;
+        case "ignore":
+          this.blindScreen();
+          break;
+
+        case "refresh":
+          this.rotateScreen();
+          break;
+
+        case "speedometer":
+          this.speedUp();
+          break;
+        default:
+          break;
+      }
+    },
+    useItem(num) {
+      if (!this.gameItems[num]) return;
+      this.$emit("handleOpponentEvent", {
+        action: "useItem",
+        param: { item: this.gameItems[num] },
+      });
+      this.gameItems[num] = "";
+    },
+    speedUp() {
+      this.clearGameInterval();
+      this.duration = 70;
+      this.setGameInterval();
+      setTimeout(() => {
+        this.clearGameInterval();
+        this.duration = 1000;
+        this.setGameInterval();
+      }, 10000);
+    },
+    rotateScreen() {
+      this.rotate = true;
+      setTimeout(() => {
+        this.rotate = false;
+      }, 8000);
+    },
+    blindScreen() {
+      this.blind = true;
+      setTimeout(() => {
+        this.blind = false;
+      }, 5000);
+    },
+    ignoreKeys() {
+      this.disableKey = true;
+      setTimeout(() => {
+        this.disableKey = false;
+      }, 5000);
+    },
+    addBlocks() {
+      let i = 0;
+      for (i = 0; i < 3; i++) {
+        const randomIndex = Math.floor(Math.random() * this.deadRow.length);
+        const row = structuredClone(this.deadRow);
+        row[randomIndex].status = "";
+        row[randomIndex].type = "";
+        this.grids.push(row);
+        this.grids.shift();
+      }
+    },
     clearGameInterval() {
       clearInterval(this.gameInterval);
       this.gameInterval = null;
@@ -147,12 +259,29 @@ export default {
     renderSync(param) {
       this.grids = param.grids;
       this.score = param.score;
+      this.gameItems = param.items;
+      this.itemKey++;
     },
     handleKeyPress(e) {
       e.preventDefault();
-
+      if (this.disableKey) return;
       // console.log('handle key press')
       switch (e.keyCode) {
+        case 49:
+          this.useItem(0);
+          break;
+        case 50:
+          this.useItem(1);
+          break;
+        case 51:
+          this.useItem(2);
+          break;
+        case 52:
+          this.useItem(3);
+          break;
+        case 53:
+          this.useItem(4);
+          break;
         case 32: // space
           this.dropBlock();
 
@@ -183,14 +312,25 @@ export default {
       setInterval(() => {
         this.$emit("handleOpponentEvent", {
           action: "renderSync",
-          param: { grids: this.grids, score: this.score },
+          param: {
+            grids: this.grids,
+            score: this.score,
+            items: this.gameItems,
+          },
         });
       }, 500);
       this.generateNewBlock();
     },
+    gameWin() {
+      this.winGame = true;
+    },
     gameOver() {
       this.clearGameInterval();
       this.$emit("gameOver");
+      this.$emit("handleOpponentEvent", {
+        action: "gameOver",
+        param: {},
+      });
     },
     prependNewLine() {},
     restartInterval() {
@@ -205,6 +345,7 @@ export default {
       const blockArray = Object.entries(this.blocks);
       const randomIndex = Math.floor(Math.random() * blockArray.length);
       this.movingItem.type = blockArray[randomIndex][0];
+
       this.$emit("handleOpponentEvent", {
         action: "generateNewBlock",
         param: this.movingItem.type,
@@ -319,25 +460,42 @@ export default {
       // this.clearGameInterval();
       const { type, direction, left } = this.tempMovingItem;
       let matched = false;
+      let nextTop = 0;
+
       this.grids.some((grid, gridIndex) => {
         this.blocks[type][direction].some((block) => {
           let x = block[0] + left;
-          //  let y = block[1] + top;
-
-          if (grid[x].status === "seized") {
+          let y = block[1] + gridIndex;
+          if (!this.grids[y]) {
+            nextTop = gridIndex - 1;
+            matched = true;
+            return true;
+          }
+          if (this.grids[y] && this.grids[y][x].status === "seized") {
+            nextTop = gridIndex - 1;
             matched = true;
             return true;
           }
         });
-        if (matched) {
-          this.tempMovingItem.top = gridIndex;
-        }
+        if (!matched) nextTop = gridIndex;
+
         return matched;
       });
-      console.log(this.tempMovingItem.top, matched);
-      if (matched) {
-        this.renderBlocks("top");
+      if (type === "bar") {
+        console.log(nextTop);
       }
+      this.movingItem.top = nextTop - 2;
+      this.tempMovingItem.top = nextTop;
+      this.renderBlocks();
+      this.seizeBlock();
+      // if (!matched) {
+      //   this.movingItem.top = this.grids.length - 2;
+      //   this.tempMovingItem.top = this.grids.length - 1;
+      // } else {
+      //   this.movingItem.top = nextTop;
+      //   this.tempMovingItem.top = nextTop + 1;
+      // }
+      // this.renderBlocks("top");
 
       // this.blocks[type][direction].some((block) => {
       //   let x = block[0] + left;
@@ -393,10 +551,37 @@ export default {
           matchedRows.push(item);
         }
       });
-      matchedRowIndexs.forEach((row) => {
-        this.grids.splice(row, 1);
-        this.score = this.score + 10;
+
+      this.score = this.score + matchedRowIndexs.length * 10;
+      this.combo = matchedRowIndexs.length;
+      if (this.score % 50 === 0 && this.score > 0) {
+        const randomIndex = Math.floor(Math.random() * 6);
+
+        const targetIndex = this.gameItems.findIndex((item) => item === "");
+        if (targetIndex > -1) {
+          this.gameItems[targetIndex] = this.GAME_ITEMS[randomIndex];
+
+          this.itemKey++;
+        }
+      }
+      if (this.combo > 1) {
+        let i = 0;
+        for (i = 1; i < this.combo; i++) {
+          const randomIndex = Math.floor(Math.random() * 6);
+
+          const targetIndex = this.gameItems.findIndex((item) => item === "");
+          if (targetIndex > -1) {
+            this.gameItems[targetIndex] = this.GAME_ITEMS[randomIndex];
+          }
+        }
+
+        this.itemKey++;
+      }
+
+      this.grids = this.grids.filter((grid, gridIndex) => {
+        return !matchedRowIndexs.includes(gridIndex);
       });
+
       matchedRows.forEach((row) => {
         this.grids.unshift(row);
       });
@@ -479,23 +664,23 @@ export default {
   left: 2px;
 }
 
-.item1 {
+.item-list > .blocks {
   background-image: url("@/assets/images/items/blocks.png");
 }
 
-.item2 {
+.item-list > .ignore {
   background-image: url("@/assets/images/items/ignore.png");
 }
 
-.item3 {
+.item-list > .prohibition {
   background-image: url("@/assets/images/items/prohibition.png");
 }
 
-.item4 {
+.item-list > .refresh {
   background-image: url("@/assets/images/items/refresh.png");
 }
 
-.item5 {
+.item-list > .speedometer {
   background-image: url("@/assets/images/items/speedometer.png");
 }
 
@@ -511,10 +696,45 @@ export default {
 .zee {
   background: #e6a23c;
 }
+.zeeOp {
+  background: #4f46e5;
+}
 .elLeft {
   background: #8e44ad;
 }
 .elRight {
   background: #16a085;
+}
+.dead {
+  background: #881337;
+}
+
+.combo {
+  animation-name: textBlink;
+  animation-duration: 0.2s;
+  animation-delay: 0s;
+  animation-iteration-count: infinite;
+  animation-timing-function: ease-out;
+  background: url("@/assets/images/explosion.png");
+  background-size: cover;
+}
+
+.rotate {
+  transform: rotate(180deg);
+  border: 2px dotted salmon;
+}
+
+.winGame {
+  background-image: url("@/assets/images/items/surprise-box.png");
+  background-size: 50%;
+  background-position: center;
+}
+@keyframes textBlink {
+  from {
+    transform: scale(0.8);
+  }
+  to {
+    transform: scale(1);
+  }
 }
 </style>

@@ -1,11 +1,18 @@
 <script setup>
-import PlayGround from './PlayGround.vue'
-import GameOverScreen from './GameOverScreen.vue'
+import PlayGround from "./PlayGround.vue";
+import GameOverScreen from "./GameOverScreen.vue";
 </script>
 <template>
   <div class="flex justify-start items-center flex-col game-wrapper">
     <!-- <p class="text-[50px] text-white">state : {{ connected }}</p> -->
-    <button class="text-white bg-emerald-500 p-2 mt-10 hover:bg-red-400" v-if="!isPlaying" @click="startGame">Start Game</button>
+    <button
+      class="text-white bg-emerald-500 p-2 mt-10 hover:bg-red-400"
+      v-if="!isPlaying"
+      @click="startGame"
+    >
+      Start Game
+    </button>
+    <p v-else class="text-white p-2 mt-10 hover:bg-red-400">&nbsp;</p>
     <div class="mt-10">
       <h2>
         <img src="@/assets/images/title.png" alt="tetris" />
@@ -32,13 +39,13 @@ import GameOverScreen from './GameOverScreen.vue'
 </template>
 
 <script>
-import { state, socket } from '@/socket'
+import { state, socket } from "@/socket";
 export default {
-  name: 'TetrisScreen',
+  name: "TetrisScreen",
   props: {
     userName: {
       type: String,
-      default: 'Player'
+      default: "Player",
     },
     // opponentName: {
     //   type: String,
@@ -49,77 +56,94 @@ export default {
     return {
       isPlaying: false,
       gotName: false,
-      gameStatus: 'wait',
+      gameStatus: "wait",
       opponentName: "Player",
-    }
+    };
   },
   watch: {
     connectionState: {
       handler(val) {
-        const event = val.gameEvents[val.gameEvents.length - 1][0]
-        if (event.userName === this.userName) return
-        this.handleOpponent(event)
+        const event = val.gameEvents[val.gameEvents.length - 1][0];
+        if (event.userName === this.userName) return;
+        this.handleOpponent(event);
       },
-      deep: true
-    }
+      deep: true,
+    },
   },
   computed: {
     connectionState() {
-      return state
+      return state;
     },
     connected() {
-      return state.connected
-    }
+      return state.connected;
+    },
   },
   created() {
-    console.log(state.connected, '@@@@@@@@')
+    console.log(state.connected, "@@@@@@@@");
   },
-  mounted(){
-    this.init()
+  mounted() {
+    this.init();
   },
   methods: {
-    init(){
-      socket.emit('GAME_ROOM', { userName: this.userName, action: 'joinUser', param: {user: this.userName} })
+    init() {
+      socket.emit("GAME_ROOM", {
+        userName: this.userName,
+        action: "joinUser",
+        param: { user: this.userName },
+      });
     },
     gameOver() {
-      this.gameStatus = 'over'
+      this.gameStatus = "over";
     },
-    startGame(){
-      this.$refs.playerGround.init()
+    startGame() {
+      this.$refs.playerGround.init();
       this.isPlaying = true;
-      socket.emit('GAME_ROOM', { userName: this.userName, action: 'startGame' })
+      socket.emit("GAME_ROOM", {
+        userName: this.userName,
+        action: "startGame",
+      });
     },
     handleTest() {
-      socket.emit('GAME_ROOM', { userName: this.userName, action: 'TEST', message: 'Hello' })
+      socket.emit("GAME_ROOM", {
+        userName: this.userName,
+        action: "TEST",
+        message: "Hello",
+      });
     },
     handleOpponent(event) {
-      const { action, param } = event
+      const { action, param } = event;
+      console.log("action", action);
       switch (action) {
-        case 'renderSync':
-          this.$refs.opponentGround.renderSync(param)
-          break
-        case 'joinUser':
-           console.log(param, 'param')
-          if(!this.gotName){
-            this.init()
+        case "useItem":
+          this.$refs.playerGround.takeItem(param.item);
+          break;
+        case "renderSync":
+          this.$refs.opponentGround.renderSync(param);
+          break;
+        case "gameOver":
+          this.$refs.playerGround.gameWin();
+          break;
+        case "joinUser":
+          if (!this.gotName) {
+            this.init();
             this.gotName = true;
           }
           this.opponentName = param.user;
-          break
-        case 'startGame':
-          this.$refs.playerGround.init()
+          break;
+        case "startGame":
+          this.$refs.playerGround.init();
           // this.$refs.opponentGround.init()
           this.isPlaying = true;
-          break
+          break;
         default:
-          break
+          break;
       }
     },
     handleOpponentEvent(option) {
-      socket.emit('GAME_ROOM', { userName: this.userName, ...option })
-    }
-  }
-}
+      socket.emit("GAME_ROOM", { userName: this.userName, ...option });
+    },
+  },
+};
 </script>
 <style scoped>
 .game-wrapper {
@@ -128,7 +152,7 @@ export default {
   left: 0;
   width: 100%;
   height: 100%;
-  background: url('@/assets/images/game-bg-2.png') no-repeat center;
+  background: url("@/assets/images/game-bg-2.png") no-repeat center;
   background-size: cover;
   overflow-y: auto;
 }
